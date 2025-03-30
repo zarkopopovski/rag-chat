@@ -12,13 +12,18 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/gen2brain/go-fitz"
 	"github.com/twinj/uuid"
 	"github.com/zarkopopovski/rag-chat/db"
 	"github.com/zarkopopovski/rag-chat/models"
 
+	"github.com/tmc/langchaingo/embeddings"
 	"github.com/tmc/langchaingo/llms/openai"
+	"github.com/tmc/langchaingo/schema"
+	"github.com/tmc/langchaingo/textsplitter"
 	"github.com/tmc/langchaingo/vectorstores/qdrant"
 )
 
@@ -336,6 +341,84 @@ func (ragController *RagController) UploadPDFDocument(w http.ResponseWriter, r *
 		http.Error(w, err.Error(), 500)
 		return
 	}
+
+	go func() {
+		doc, err := fitz.New(fileName)
+		if err != nil {
+			log.Printf("Failed to open PDF file: %v", err)
+			return
+		}
+
+		defer doc.Close()
+
+		reqCharacterSplitter := textsplitter.NewRecursiveCharacter()
+		reqCharacterSplitter.ChunkSize = 1000
+		reqCharacterSplitter.ChunkOverlap = 200
+		reqCharacterSplitter.LenFunc = func(s string) int { return len(s) }
+
+		pagesList := make([]schema.Document, 0)
+
+		for idx := range doc.NumPage() {
+			text, _ := doc.Text(idx)
+
+			text = strings.ReplaceAll(text, "\n", " ")
+			text = strings.ToLower(text)
+
+			newDoc := schema.Document{PageContent: text}
+			pagesList = append(pagesList, newDoc)
+		}
+
+		chunksDocList, _ := textsplitter.SplitDocuments(reqCharacterSplitter, pagesList)
+
+		qdrantURL := os.Getenv("QDRANT_URL")
+
+		ctx := context.Background()
+
+		urlAPI, err := url.Parse(qdrantURL)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		llm, err := openai.New(ragController.OpenAIOptions...)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		e, err := embeddings.NewEmbedder(llm)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		store, err := qdrant.New(
+			qdrant.WithURL(*urlAPI),
+			qdrant.WithCollectionName(collectionHash),
+			qdrant.WithEmbedder(e),
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		_, err = store.AddDocuments(ctx, chunksDocList)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		queryDocumentStr := "UPDATE documents SET is_indexed=true, date_modified=datetime('now') WHERE user_id=$1 AND collection_id=$2 AND file_name=$3;"
+
+		_, err = ragController.DBManager.DB.Exec(queryDocumentStr, userID, collectionId, fileName)
+
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+
+		uploadedFilePath := os.Getenv("UPLOAD_FOLDER") + fileName
+		err = os.Remove(uploadedFilePath)
+		if err != nil {
+			log.Printf("Failed to delete uploaded file: %v", err)
+		}
+	}()
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
