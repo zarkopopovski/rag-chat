@@ -147,7 +147,7 @@ func main() {
 	httpRouter.HandleFunc("POST /api/v1/chat/start-chat-session", handlers.ChatController.StartChatSession)
 	httpRouter.HandleFunc("GET /api/v1/chat/list-chat-sessions", handlers.ChatController.ListChatSessions)
 	httpRouter.HandleFunc("POST /api/v1/chat/send-message-to-chat-session", handlers.ChatController.SendMessageToChatSession)
-	httpRouter.HandleFunc("DELETE /api/v1/chat/delete-chat-session", handlers.ChatController.DeleteChatSession)
+	httpRouter.HandleFunc("DELETE /api/v1/chat/delete-chat-session/{chatSessionID}", handlers.ChatController.DeleteChatSession)
 
 	fileServer := http.FileServer(FileSystem{http.Dir("assets/uploads/")})
 	httpRouter.Handle("/static/", http.StripPrefix(strings.TrimRight("/static/", "/"), fileServer))

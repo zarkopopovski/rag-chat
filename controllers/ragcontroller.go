@@ -212,7 +212,7 @@ func (ragController *RagController) DeleteVectorCollection(w http.ResponseWriter
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF8")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(map[string]string{"error": "Successfully deleted"}); err != nil {
+	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Successfully deleted"}); err != nil {
 		log.Printf("%s", err)
 	}
 }
@@ -678,7 +678,7 @@ func (ragController *RagController) DeletePromptTemplateForCollection(w http.Res
 
 	w.Header().Set("Content-Type", "application/json; charset=UTF8")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(map[string]string{"error": "Successfully deleted"}); err != nil {
+	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Successfully deleted"}); err != nil {
 		log.Printf("%s", err)
 	}
 }
