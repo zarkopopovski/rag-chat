@@ -547,11 +547,26 @@ func (ragController *RagController) GetPromptTemplateForCollection(w http.Respon
 
 	collectionHash := r.PathValue("collectionHash")
 
+	queryCollectionStr := "SELECT * FROM vector_collections WHERE user_id=$1 AND collection_hash=$2"
+
+	vectorCollection := models.VectorCollection{}
+
+	err = ragController.DBManager.DB.Get(&vectorCollection, queryCollectionStr, userID, collectionHash)
+
+	if err != nil {
+		log.Println(err.Error())
+
+		w.WriteHeader(http.StatusNotFound)
+
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "3", "message": "Not Found"})
+		return
+	}
+
 	queryStr := "SELECT * FROM prompt_templates WHERE user_id=$1 AND collection_id=$2 ORDER BY date_created DESC"
 
 	promptTemplate := models.PromptTemplate{}
 
-	err = ragController.DBManager.DB.Get(&promptTemplate, queryStr, userID, collectionHash)
+	err = ragController.DBManager.DB.Get(&promptTemplate, queryStr, userID, vectorCollection.ID)
 
 	if err != nil {
 		log.Println(err.Error())
@@ -681,4 +696,20 @@ func (ragController *RagController) DeletePromptTemplateForCollection(w http.Res
 	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Successfully deleted"}); err != nil {
 		log.Printf("%s", err)
 	}
+}
+
+func (ragController *RagController) GetVectorCollectionByHash(userID int64, collectionHash string) (interface{}, error) {
+	queryStr := "SELECT * FROM vector_collections WHERE user_id=$1 AND collection_hash=$2"
+
+	vectorCollection := models.VectorCollection{}
+
+	err := ragController.DBManager.DB.Get(&vectorCollection, queryStr, userID, collectionHash)
+
+	if err != nil {
+		log.Println(err.Error())
+
+		return nil, err
+	}
+
+	return vectorCollection, nil
 }
