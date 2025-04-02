@@ -67,7 +67,11 @@ func (ragController *RagController) CreateVectorCollection(w http.ResponseWriter
 
 	json.Unmarshal([]byte(b), &postMap)
 
-	name := postMap["name"].(string)
+	name, ok := postMap["name"].(string)
+	if !ok || name == "" {
+		http.Error(w, "Name is required and must be a string", http.StatusBadRequest)
+		return
+	}
 
 	collectionHash := uuid.NewV4().String()
 
@@ -343,7 +347,7 @@ func (ragController *RagController) UploadPDFDocument(w http.ResponseWriter, r *
 	}
 
 	go func() {
-		doc, err := fitz.New(fileName)
+		doc, err := fitz.New(os.Getenv("UPLOAD_FOLDER") + fileName)
 		if err != nil {
 			log.Printf("Failed to open PDF file: %v", err)
 			return
@@ -500,11 +504,27 @@ func (ragController *RagController) SetupPromptTemplateForCollection(w http.Resp
 	json.Unmarshal([]byte(b), &postMap)
 
 	template := postMap["template"].(string)
-	colectionID := postMap["collection_id"].(string)
+	collectionHash := postMap["collection_hash"].(string)
+
+	queryCollectionStr := "SELECT * FROM vector_collections WHERE user_id=$1 AND collection_hash=$2"
+
+	vectorCollection := models.VectorCollection{}
+
+	err = ragController.DBManager.DB.Get(&vectorCollection, queryCollectionStr, userID, collectionHash)
+
+	if err != nil {
+		log.Println(err.Error())
+
+		w.WriteHeader(http.StatusNotFound)
+
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "3", "message": "Not Found"})
+		return
+	}
+	collectionId := vectorCollection.ID
 
 	queryStr := "INSERT INTO prompt_templates(user_id, collection_id, template, date_created, date_modified) VALUES($1, $2, $3, datetime('now'), datetime('now'))"
 
-	_, err = ragController.DBManager.DB.Exec(queryStr, userID, template, colectionID)
+	_, err = ragController.DBManager.DB.Exec(queryStr, userID, collectionId, template)
 
 	if err != nil {
 		log.Printf("%s", err.Error())
@@ -562,7 +582,7 @@ func (ragController *RagController) GetPromptTemplateForCollection(w http.Respon
 		return
 	}
 
-	queryStr := "SELECT * FROM prompt_templates WHERE user_id=$1 AND collection_id=$2 ORDER BY date_created DESC"
+	queryStr := "SELECT * FROM prompt_templates WHERE user_id=$1 AND collection_id=$2"
 
 	promptTemplate := models.PromptTemplate{}
 
@@ -573,7 +593,7 @@ func (ragController *RagController) GetPromptTemplateForCollection(w http.Respon
 
 		w.WriteHeader(http.StatusNotFound)
 
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "3", "message": "Not Found"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "4", "message": "Not Found"})
 		return
 	}
 

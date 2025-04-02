@@ -1,4 +1,4 @@
-CREATE TABLE prompt_templates (
+CREATE TABLE IF NOT EXISTS prompt_templates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     collection_id INTEGER NOT NULL,

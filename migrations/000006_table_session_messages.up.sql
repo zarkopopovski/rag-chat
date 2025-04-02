@@ -1,5 +1,5 @@
-CREATE TABLE session_messages (
-    id SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS session_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     session_id VARCHAR(50) NOT NULL,
     message TEXT NOT NULL,
