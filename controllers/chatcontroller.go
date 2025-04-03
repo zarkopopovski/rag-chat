@@ -75,13 +75,13 @@ func (chatController *ChatController) StartChatSession(w http.ResponseWriter, r 
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "3", "message": "Not Found"})
 		return
 	}
-	colectionID := vectorCollection.ID
+	collectionID := vectorCollection.ID
 
 	sessionID := uuid.NewV4().String()
 
 	querySessionStr := "INSERT INTO chat_sessions(user_id, collection_id, session_id, date_created, date_modified) VALUES($1, $2, $3, datetime('now'), datetime('now'))"
 
-	_, err = chatController.DBManager.DB.Exec(querySessionStr, userID, colectionID, sessionID)
+	_, err = chatController.DBManager.DB.Exec(querySessionStr, userID, collectionID, sessionID)
 
 	if err != nil {
 		log.Printf("%s", err.Error())
@@ -94,11 +94,11 @@ func (chatController *ChatController) StartChatSession(w http.ResponseWriter, r 
 		return
 	}
 
-	queryPromptStr := "SELECT * FROM prompt_templates WHERE collection_id=$2 ORDER BY date_created DESC"
+	queryPromptStr := "SELECT * FROM prompt_templates WHERE collection_id=$1"
 
 	promptTemplate := models.PromptTemplate{}
 
-	err = chatController.DBManager.DB.Get(&promptTemplate, queryPromptStr, vectorCollection.ID)
+	err = chatController.DBManager.DB.Get(&promptTemplate, queryPromptStr, collectionID)
 
 	if err != nil {
 		log.Println(err.Error())
@@ -223,9 +223,9 @@ func (chatController *ChatController) SendMessageToChatSession(w http.ResponseWr
 
 	vectorCollection := models.VectorCollection{}
 
-	queryCollectionStr := "SELECT * FROM vector_collections WHERE collection_id=$2"
+	queryCollectionStr := "SELECT * FROM vector_collections WHERE id=$1"
 
-	err = chatController.DBManager.DB.Get(&vectorCollection, queryCollectionStr, userID, chatSession.CollectionID)
+	err = chatController.DBManager.DB.Get(&vectorCollection, queryCollectionStr, chatSession.CollectionID)
 
 	if err != nil {
 		log.Println(err.Error())

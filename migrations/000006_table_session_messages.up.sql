@@ -5,5 +5,5 @@ CREATE TABLE IF NOT EXISTS session_messages (
     message TEXT NOT NULL,
     message_role VARCHAR(10) NOT NULL,
     date_created  DATETIME NOT NULL,
-    date_modified DATETIME NOT NULL,
+    date_modified DATETIME NOT NULL
 );
