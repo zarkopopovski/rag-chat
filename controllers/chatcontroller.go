@@ -243,7 +243,6 @@ func (chatController *ChatController) SendMessageToChatSession(w http.ResponseWr
 	if err != nil {
 		log.Printf("%s", err.Error())
 
-		w.Header().Set("Content-Type", "application/json; charset=UTF8")
 		w.WriteHeader(http.StatusInternalServerError)
 		if err := json.NewEncoder(w).Encode(map[string]string{"error": "Something got wrong..."}); err != nil {
 			log.Printf("%s", err)
@@ -332,12 +331,13 @@ func (chatController *ChatController) SendMessageToChatSession(w http.ResponseWr
 
 	queryAIResponseStr := "INSERT INTO session_messages(user_id, session_id, message, message_role, date_created, date_modified) VALUES($1, $2, $3, $4, datetime('now'), datetime('now'))"
 
-	_, err = chatController.DBManager.DB.Exec(queryAIResponseStr, userID, chatSession.SessionID, output.Choices[0].Content, "ai")
+	aiResponse := output.Choices[0].Content
+
+	_, err = chatController.DBManager.DB.Exec(queryAIResponseStr, userID, chatSession.SessionID, aiResponse, "ai")
 
 	if err != nil {
 		log.Printf("%s", err.Error())
 
-		w.Header().Set("Content-Type", "application/json; charset=UTF8")
 		w.WriteHeader(http.StatusInternalServerError)
 		if err := json.NewEncoder(w).Encode(map[string]string{"error": "Something got wrong..."}); err != nil {
 			log.Printf("%s", err)
@@ -345,11 +345,12 @@ func (chatController *ChatController) SendMessageToChatSession(w http.ResponseWr
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=UTF8")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Successfully created"}); err != nil {
+
+	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Successfully created", "data": aiResponse}); err != nil {
 		log.Printf("%s", err)
 	}
+	w.(http.Flusher).Flush()
 }
 
 func (chatController *ChatController) GetChatSessionMessages(w http.ResponseWriter, r *http.Request) {
@@ -375,7 +376,22 @@ func (chatController *ChatController) GetChatSessionMessages(w http.ResponseWrit
 
 	chatSessionID := r.PathValue("chatSessionID")
 
-	queryStr := "SELECT * FROM session_messages WHERE user_id=$1 AND session_id=$2 AND message_role NOT 'system' ORDER BY date_created ASC"
+	queryChatSessionStr := "SELECT * FROM chat_sessions WHERE user_id=$1 AND session_id=$2"
+
+	chatSession := models.ChatSession{}
+
+	err = chatController.DBManager.DB.Get(&chatSession, queryChatSessionStr, userID, chatSessionID)
+
+	if err != nil {
+		log.Println(err.Error())
+
+		w.WriteHeader(http.StatusNotFound)
+
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "2", "message": "Not Found"})
+		return
+	}
+
+	queryStr := "SELECT * FROM session_messages WHERE user_id=$1 AND session_id=$2 AND message_role <> 'system' ORDER BY date_created ASC"
 
 	sessionMessages := make([]models.SessionMessage, 0)
 
@@ -417,6 +433,21 @@ func (chatController *ChatController) DeleteChatSession(w http.ResponseWriter, r
 	}
 
 	chatSessionID := r.PathValue("chatSessionID")
+
+	queryChatSessionStr := "SELECT * FROM chat_sessions WHERE user_id=$1 AND session_id=$2"
+
+	chatSession := models.ChatSession{}
+
+	err = chatController.DBManager.DB.Get(&chatSession, queryChatSessionStr, userID, chatSessionID)
+
+	if err != nil {
+		log.Println(err.Error())
+
+		w.WriteHeader(http.StatusNotFound)
+
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "2", "message": "Not Found"})
+		return
+	}
 
 	deleteSessionMesasagesQuery := "DELETE FROM session_messages WHERE session_id=$1 AND user_id=$2"
 	_, err = chatController.DBManager.DB.Exec(deleteSessionMesasagesQuery, chatSessionID, userID)
