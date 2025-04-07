@@ -36,36 +36,17 @@ type RagController struct {
 }
 
 func (ragController *RagController) CreateVectorCollection(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	ragController.setJSONHeaders(w)
 
-	metaData, err := ragController.AuthController.ExtractTokenMetadata(r)
+	userID, err := ragController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	userID, err := ragController.AuthController.FetchAuth(metaData)
+	postMap, err := ragController.parseRequestBody(r, w)
 	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
-
-	b, err := io.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	var postMap map[string]interface{}
-
-	json.Unmarshal([]byte(b), &postMap)
 
 	name, ok := postMap["name"].(string)
 	if !ok || name == "" {
@@ -122,25 +103,13 @@ func (ragController *RagController) CreateVectorCollection(w http.ResponseWriter
 }
 
 func (ragController *RagController) ListVectorCollections(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	ragController.setJSONHeaders(w)
 
-	metaData, err := ragController.AuthController.ExtractTokenMetadata(r)
+	userID, err := ragController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	userID, err := ragController.AuthController.FetchAuth(metaData)
-	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
-		return
-	}
 	queryStr := "SELECT * FROM vector_collections WHERE user_id=$1 ORDER BY date_created DESC"
 
 	vectorCollections := make([]models.VectorCollection, 0)
@@ -162,23 +131,10 @@ func (ragController *RagController) ListVectorCollections(w http.ResponseWriter,
 }
 
 func (ragController *RagController) DeleteVectorCollection(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	ragController.setJSONHeaders(w)
 
-	metaData, err := ragController.AuthController.ExtractTokenMetadata(r)
+	userID, err := ragController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := ragController.AuthController.FetchAuth(metaData)
-	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
 
@@ -222,20 +178,10 @@ func (ragController *RagController) DeleteVectorCollection(w http.ResponseWriter
 }
 
 func (ragController *RagController) UploadPDFDocument(w http.ResponseWriter, r *http.Request) {
-	metaData, err := ragController.AuthController.ExtractTokenMetadata(r)
+	ragController.setJSONHeaders(w)
+
+	userID, err := ragController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-
-	userID, err := ragController.AuthController.FetchAuth(metaData)
-	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
 
@@ -431,23 +377,10 @@ func (ragController *RagController) UploadPDFDocument(w http.ResponseWriter, r *
 }
 
 func (ragController *RagController) ListPDFDocuments(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	ragController.setJSONHeaders(w)
 
-	metaData, err := ragController.AuthController.ExtractTokenMetadata(r)
+	userID, err := ragController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := ragController.AuthController.FetchAuth(metaData)
-	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
 
@@ -472,36 +405,17 @@ func (ragController *RagController) ListPDFDocuments(w http.ResponseWriter, r *h
 }
 
 func (ragController *RagController) SetupPromptTemplateForCollection(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	ragController.setJSONHeaders(w)
 
-	metaData, err := ragController.AuthController.ExtractTokenMetadata(r)
+	userID, err := ragController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	userID, err := ragController.AuthController.FetchAuth(metaData)
+	postMap, err := ragController.parseRequestBody(r, w)
 	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
-
-	b, err := io.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	var postMap map[string]interface{}
-
-	json.Unmarshal([]byte(b), &postMap)
 
 	template := postMap["template"].(string)
 	collectionHash := postMap["collection_hash"].(string)
@@ -545,23 +459,10 @@ func (ragController *RagController) SetupPromptTemplateForCollection(w http.Resp
 }
 
 func (ragController *RagController) GetPromptTemplateForCollection(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	ragController.setJSONHeaders(w)
 
-	metaData, err := ragController.AuthController.ExtractTokenMetadata(r)
+	userID, err := ragController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := ragController.AuthController.FetchAuth(metaData)
-	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
 
@@ -603,36 +504,17 @@ func (ragController *RagController) GetPromptTemplateForCollection(w http.Respon
 }
 
 func (ragController *RagController) UpdatePromptTemplateForCollection(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	ragController.setJSONHeaders(w)
 
-	metaData, err := ragController.AuthController.ExtractTokenMetadata(r)
+	userID, err := ragController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	userID, err := ragController.AuthController.FetchAuth(metaData)
+	postMap, err := ragController.parseRequestBody(r, w)
 	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
-
-	b, err := io.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	var postMap map[string]interface{}
-
-	json.Unmarshal([]byte(b), &postMap)
 
 	template := postMap["template"].(string)
 	collectionHash := postMap["collection_hash"].(string)
@@ -676,23 +558,10 @@ func (ragController *RagController) UpdatePromptTemplateForCollection(w http.Res
 }
 
 func (ragController *RagController) DeletePromptTemplateForCollection(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	ragController.setJSONHeaders(w)
 
-	metaData, err := ragController.AuthController.ExtractTokenMetadata(r)
+	userID, err := ragController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := ragController.AuthController.FetchAuth(metaData)
-	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
 
@@ -732,4 +601,41 @@ func (ragController *RagController) GetVectorCollectionByHash(userID int64, coll
 	}
 
 	return vectorCollection, nil
+}
+
+func (ragController *RagController) setJSONHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+}
+
+func (ragController *RagController) authenticateRequest(r *http.Request, w http.ResponseWriter) (int64, error) {
+	metaData, err := ragController.AuthController.ExtractTokenMetadata(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return -1, err
+	}
+	userID, err := ragController.AuthController.FetchAuth(metaData)
+	if err != nil {
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
+		return -1, err
+	}
+	return userID, nil
+}
+
+func (ragController *RagController) parseRequestBody(r *http.Request, w http.ResponseWriter) (map[string]interface{}, error) {
+	body, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return nil, err
+	}
+
+	var postMap map[string]interface{}
+	if err := json.Unmarshal(body, &postMap); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return nil, err
+	}
+	return postMap, nil
 }

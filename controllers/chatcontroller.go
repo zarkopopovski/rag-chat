@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -28,36 +27,17 @@ type ChatController struct {
 }
 
 func (chatController *ChatController) StartChatSession(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	chatController.setJSONHeaders(w)
 
-	metaData, err := chatController.AuthController.ExtractTokenMetadata(r)
+	userID, err := chatController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	userID, err := chatController.AuthController.FetchAuth(metaData)
+	postMap, err := chatController.parseRequestBody(r, w)
 	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
-
-	b, err := io.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	var postMap map[string]interface{}
-
-	json.Unmarshal([]byte(b), &postMap)
 
 	collectionHash := postMap["collection_hash"].(string)
 
@@ -130,23 +110,10 @@ func (chatController *ChatController) StartChatSession(w http.ResponseWriter, r 
 }
 
 func (chatController *ChatController) ListChatSessions(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	chatController.setJSONHeaders(w)
 
-	metaData, err := chatController.AuthController.ExtractTokenMetadata(r)
+	userID, err := chatController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := chatController.AuthController.FetchAuth(metaData)
-	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
 
@@ -171,36 +138,17 @@ func (chatController *ChatController) ListChatSessions(w http.ResponseWriter, r 
 }
 
 func (chatController *ChatController) SendMessageToChatSession(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	chatController.setJSONHeaders(w)
 
-	metaData, err := chatController.AuthController.ExtractTokenMetadata(r)
+	userID, err := chatController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
 
-	userID, err := chatController.AuthController.FetchAuth(metaData)
+	postMap, err := chatController.parseRequestBody(r, w)
 	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
-
-	b, err := io.ReadAll(r.Body)
-	defer r.Body.Close()
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	var postMap map[string]interface{}
-
-	json.Unmarshal([]byte(b), &postMap)
 
 	chatSessionID := postMap["session_id"].(string)
 	userMessage := postMap["user_message"].(string)
@@ -272,8 +220,6 @@ func (chatController *ChatController) SendMessageToChatSession(w http.ResponseWr
 			} else if message.MessageRole == "ai" {
 				content = append(content, llms.TextParts(llms.ChatMessageTypeAI, message.Message))
 			}
-
-			chatMessageData += message.MessageRole + ": " + message.Message + "\n"
 		}
 	}
 
@@ -319,10 +265,10 @@ func (chatController *ChatController) SendMessageToChatSession(w http.ResponseWr
 	}
 
 	chatMessageData += "Context: " + stringContext
-	content = append(content, llms.TextParts(llms.ChatMessageTypeHuman, stringContext))
+	content = append(content, llms.TextParts(llms.ChatMessageTypeHuman, chatMessageData))
 
 	output, err := llm.GenerateContent(ctx, content,
-		llms.WithMaxTokens(1024),
+		llms.WithMaxTokens(512),
 		llms.WithTemperature(0),
 	)
 	if err != nil {
@@ -354,23 +300,10 @@ func (chatController *ChatController) SendMessageToChatSession(w http.ResponseWr
 }
 
 func (chatController *ChatController) GetChatSessionMessages(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	chatController.setJSONHeaders(w)
 
-	metaData, err := chatController.AuthController.ExtractTokenMetadata(r)
+	userID, err := chatController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := chatController.AuthController.FetchAuth(metaData)
-	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
 
@@ -412,23 +345,10 @@ func (chatController *ChatController) GetChatSessionMessages(w http.ResponseWrit
 }
 
 func (chatController *ChatController) DeleteChatSession(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	chatController.setJSONHeaders(w)
 
-	metaData, err := chatController.AuthController.ExtractTokenMetadata(r)
+	userID, err := chatController.authenticateRequest(r, w)
 	if err != nil {
-		fmt.Println(err.Error())
-
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := chatController.AuthController.FetchAuth(metaData)
-	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
 		return
 	}
 
@@ -473,4 +393,41 @@ func (chatController *ChatController) DeleteChatSession(w http.ResponseWriter, r
 	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Successfully deleted"}); err != nil {
 		log.Printf("%s", err)
 	}
+}
+
+func (chatController *ChatController) setJSONHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+}
+
+func (chatController *ChatController) authenticateRequest(r *http.Request, w http.ResponseWriter) (int64, error) {
+	metaData, err := chatController.AuthController.ExtractTokenMetadata(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return -1, err
+	}
+	userID, err := chatController.AuthController.FetchAuth(metaData)
+	if err != nil {
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "error", "error_code": "1", "message": "Forbidden access"})
+		return -1, err
+	}
+	return userID, nil
+}
+
+func (chatController *ChatController) parseRequestBody(r *http.Request, w http.ResponseWriter) (map[string]interface{}, error) {
+	body, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return nil, err
+	}
+
+	var postMap map[string]interface{}
+	if err := json.Unmarshal(body, &postMap); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return nil, err
+	}
+	return postMap, nil
 }
